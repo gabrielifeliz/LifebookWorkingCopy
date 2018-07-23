@@ -1,26 +1,25 @@
 package com.lifebook.Controllers;
 
-import com.cloudinary.utils.ObjectUtils;
 import com.lifebook.Model.*;
 import com.lifebook.Repositories.*;
 import com.lifebook.Service.CloudinaryConfig;
+import com.lifebook.Service.StmpMailSender;
 import com.lifebook.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.annotation.PostConstruct;
+import javax.mail.MessagingException;
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 
 @Controller
 public class HomeController {
@@ -45,6 +44,8 @@ public class HomeController {
     @Autowired
     CloudinaryConfig cloudc;
 
+    @Autowired
+    private StmpMailSender stmpMailSender;
 
     @RequestMapping("/")
     public String homePage() {
@@ -65,32 +66,83 @@ public class HomeController {
     @PostMapping("/register")
     public String processRegistrationPage(
             @Valid @ModelAttribute("user") AppUser user,
-            @RequestParam("file") MultipartFile file,
-            BindingResult result, Model model) {
+            BindingResult result, HttpServletRequest request, Model model) throws MessagingException {
         model.addAttribute("user", user);
-        if (result.hasErrors()) {
-            return "registration";
-        } else {
-            if (file.isEmpty()) {
-                user.getDetail().setProfilePic("/img/user.png");
-                userService.saveUser(user);
-                return "redirect:/login";
-            }
-            else {
-                try {
-                    Map uploadResult = cloudc.upload(file.getBytes(), ObjectUtils.asMap("resourcetype", "auto"));
-                    String uploadedName = (String) uploadResult.get("public_id");
 
-                    String transformedImage = cloudc.createUrl(uploadedName);
-                    user.getDetail().setProfilePic(transformedImage);
-                    userService.saveUser(user);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    return "redirect:/login";
-                }
+        System.out.println(result.getAllErrors().toString());
+
+        if (result.hasErrors()) {
+            if (users.findByEmail(user.getEmail()) != null) {
+                model.addAttribute("existingemail",
+                        "There is an account with that email: " + user.getEmail());
             }
+
+            if (users.findByUsername(user.getUsername()) != null) {
+                model.addAttribute("existingusername",
+                        "There is an account with that username: " + user.getUsername());
+            }
+            return "registration";
         }
-        return "redirect:/login";
+
+        // Disable user until they click on confirmation link in email
+        user.setEnabled(false);
+        // Generate random 36-character string token for confirmation link
+        user.setConfirmationToken(UUID.randomUUID().toString());
+
+        userService.save(user);
+
+        String appUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getLocalPort();
+        stmpMailSender.sendEmailMessage(user.getEmail(), "Registration Confirmation",
+                "To confirm your e-mail address, please click the link below:\n"
+                + appUrl + "/confirm?token=" + user.getConfirmationToken());
+        model.addAttribute("confirmationMessage",
+                "A confirmation e-mail has been sent to " + user.getEmail());
+        return "registration";
+    }
+    
+    @GetMapping("/confirm")
+    public String confirmRegistration(Model model, @RequestParam("token") String token) {
+
+        AppUser user = userService.findByConfirmationToken(token);
+
+        if (user == null) { // No token found in DB
+            model.addAttribute("invalidToken", "Oops!  This is an invalid confirmation link.");
+        } else { // Token found
+            model.addAttribute("confirmationToken", user.getConfirmationToken());
+        }
+
+        return "confirm";
+    }
+
+    @PostMapping("/confirm")
+    public String confirmRegistration(Model model, @RequestParam Map<String, String> requestParams) {
+
+        // Find the user associated with the reset token
+        AppUser user = userService.findByConfirmationToken(requestParams.get("token"));
+
+        String passwordInput = requestParams.get("password");
+        // Set new password
+        if (passwordInput.isEmpty() || passwordInput.equalsIgnoreCase(null)) {
+            model.addAttribute("errorMessage", "Please provide a valid password");
+            return "redirect:/confirm?token="+ user.getConfirmationToken();
+        } else if (passwordInput.length() < 4) {
+            model.addAttribute("errorMessage", "Please provide a strong password");
+            return "redirect:/confirm?token="+ user.getConfirmationToken();
+        }
+
+        user.setPassword(new BCryptPasswordEncoder().encode(passwordInput));
+
+        // Set user to enabled
+        user.setEnabled(true);
+
+        // Save user
+        userService.saveUser(user);
+
+        model.addAttribute("successPasswordMessage", "Your password has been set!");
+        model.addAttribute("successMessage", "Your account has been activated!");
+
+
+        return "confirm";
     }
 
     @PostConstruct
@@ -102,7 +154,11 @@ public class HomeController {
 
         AppUser adminLogin = new AppUser();
         adminLogin.setUsername("admin");
-        adminLogin.setPassword("adminp");
+        adminLogin.setPassword(new BCryptPasswordEncoder().encode("adminp"));
+        adminLogin.setEmail("lifebookapplication@gmail.com");
+        adminLogin.setFirstName("An");
+        adminLogin.setLastName("Administrator");
+        adminLogin.setEnabled(true);
         adminLogin.getRoles().add(admin);
         users.save(adminLogin);
 

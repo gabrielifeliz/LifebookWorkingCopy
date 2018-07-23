@@ -61,12 +61,12 @@
       <div class="w3-container w3-card w3-white w3-round w3-margin" th:each = "aPost : ${posts}"><br>
         <img th:src="${aPost.creator.profilePic}" alt="Avatar" class="w3-left w3-circle w3-margin-right" style="width:60px">
         <span class="w3-right w3-opacity">1 min</span>
-        <h4 th:text = "${aPost.creator.fullName}"></h4><br>
+        <h4 th:text = "${aPost.creator.currentUser.firstName} + ' ' + ${aPost.creator.currentUser.lastName}"></h4><br>
         <h4 th:text = "${aPost.subject}"></h4><br>
         <hr class="w3-clear">
         <p th:text="${aPost.content}"></p>
         <div class="w3-row-padding" style="margin:0 -16px">
-          <div class="w3-half">
+          <div class="w3-half" th:if="${aPost.imageUrl} != null">
             <img th:src="${aPost.imageUrl}" style="width:100%" alt="Post Image" class="w3-margin-bottom">
           </div>
           <div class="w3-half">

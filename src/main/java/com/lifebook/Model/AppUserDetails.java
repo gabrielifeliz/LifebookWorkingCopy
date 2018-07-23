@@ -13,20 +13,13 @@ public class AppUserDetails {
     @GeneratedValue(strategy= GenerationType.AUTO)
     private long id;
 
-    private String fullName;
-
-    @Column(name = "email", nullable = false)
-    @Email(message = "Please provide a valid e-mail")
-    @NotEmpty(message = "Please provide an e-mail")
-    private String email;
-
     private String profilePic;
 
     @OneToOne(mappedBy = "detail")
     private AppUser currentUser;
 
     @OneToMany(mappedBy = "detail")
-    private Set<AppUser> followers;
+    private Set<AppUser> followingUsers;
 
     @OneToMany(mappedBy = "creator")
     private Set<UserPost> posts;
@@ -35,7 +28,7 @@ public class AppUserDetails {
     private Set<Setting> settings;
 
     public AppUserDetails() {
-        this.followers = new HashSet<>();
+        this.followingUsers = new HashSet<>();
         this.posts = new HashSet<>();
         this.settings = new HashSet<>();
     }
@@ -46,22 +39,6 @@ public class AppUserDetails {
 
     public void setId(long id) {
         this.id = id;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
     }
 
     public String getProfilePic() {
@@ -80,12 +57,12 @@ public class AppUserDetails {
         this.currentUser = currentUser;
     }
 
-    public Set<AppUser> getFollowers() {
-        return followers;
+    public Set<AppUser> getFollowingUsers() {
+        return followingUsers;
     }
 
-    public void setFollowers(Set<AppUser> followers) {
-        this.followers = followers;
+    public void setFollowingUsers(Set<AppUser> followingUsers) {
+        this.followingUsers = followingUsers;
     }
 
     public Set<UserPost> getPosts() {

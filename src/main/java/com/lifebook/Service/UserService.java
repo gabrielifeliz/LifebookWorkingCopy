@@ -9,9 +9,7 @@ import com.lifebook.Repositories.AppUserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import javax.transaction.Transactional;
 
 @Service
 public class UserService {
@@ -30,8 +28,16 @@ public class UserService {
         this.users = users;
     }
 
-    public AppUser findByUserName(String username) {
+    public AppUser findByUsername(String username) {
         return users.findByUsername(username);
+    }
+
+    public AppUser findByEmail(String email) {
+        return users.findByEmail(email);
+    }
+
+    public AppUser findByConfirmationToken(String confirmationToken) {
+        return users.findByConfirmationToken(confirmationToken);
     }
 
     public void saveUser(AppUser user) {
@@ -42,8 +48,14 @@ public class UserService {
 
         user.getRoles().add(userRole);
 
-        AppUserDetails detail = user.getDetail();
+        AppUserDetails detail = new AppUserDetails();
+        detail.setProfilePic("/img/user.png");
+        user.setDetail(detail);
         details.save(detail);
+        users.save(user);
+    }
+
+    public void save(AppUser user) {
         users.save(user);
     }
 }

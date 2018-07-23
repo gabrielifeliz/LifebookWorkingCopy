@@ -50,28 +50,29 @@ public class UserController {
 
         if (users.findByUsername(authentication.getName()).getRoles().contains(roles.findByRole("ADMIN"))) {
             return "redirect:/admin/";
-        }
-        else {
-            /*AppUser sessionUser =users.findByUsername(authentication.getName());
-            AppUserDetails ud = sessionUser.getDetail();
-            Set<AppUser> following = ud.getFollowers();
+        } else {
+            Set<AppUser> following = users.findByUsername(authentication.getName())
+                    .getDetail().getFollowingUsers();
             List<UserPost> posts = new ArrayList<>();
-            for (AppUser u: following) {
-                posts.add()
+            for (AppUser u : following) {
+                posts.addAll(u.getDetail().getPosts());
             }
-            model.addAttribute("posts", );
-            return "allposts";*/
-            return "index";
+            model.addAttribute("posts", posts);
+            return "allposts";
         }
     }
 
     @PostMapping("/newmessage")
     public String sendMessage(@ModelAttribute("post") UserPost post,
                               @RequestParam("file") MultipartFile file, Authentication authentication) {
-        post.setCreator(users.findByUsername(authentication.getName()).getDetail());
+        AppUserDetails userDetails = users.findByUsername(authentication.getName()).getDetail();
+        post.setCreator(userDetails);
+
         if (file.isEmpty()) {
-            post.setImageUrl("/img/user.png");
+            post.setImageUrl(null);
             posts.save(post);
+            userDetails.getPosts().add(post);
+            details.save(userDetails);
             return "redirect:/users/profile";
         }
         else {
@@ -82,6 +83,8 @@ public class UserController {
                 String transformedImage = cloudc.createUrl(uploadedName);
                 post.setImageUrl(transformedImage);
                 posts.save(post);
+                userDetails.getPosts().add(post);
+                details.save(userDetails);
 
             } catch (IOException e) {
                 e.printStackTrace();
@@ -101,6 +104,7 @@ public class UserController {
         UserPost post = new UserPost();
         model.addAttribute("post",post);
         model.addAttribute("posts", posts.findAllByOrderByIdDesc());
+        System.out.println(authentication.getName());
         return "profile";
     }
 
@@ -108,8 +112,13 @@ public class UserController {
     public String showJob (@PathVariable("id") long id, Authentication auth) {
 
         AppUserDetails detail = details.findById(id).get();
+        System.out.println(detail.getId());
         AppUser sessionUser = users.findByUsername(auth.getName());
-        sessionUser.getDetail().getFollowers().add(detail.getCurrentUser());
+        System.out.println(sessionUser.getDetail().getId());
+        sessionUser.getDetail().getFollowingUsers().add(detail.getCurrentUser());
+        for (AppUser u : sessionUser.getDetail().getFollowingUsers()) {
+            System.out.println(u.getDetail().getId() + "--");
+        }
         users.save(sessionUser);
         return "redirect:/users/profile";
     }
